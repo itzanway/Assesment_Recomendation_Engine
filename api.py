@@ -1,13 +1,14 @@
-"""
-SHL Assessment Recommendation Engine - REST API
-
-Flask-based REST API for the assessment recommendation engine.
-"""
 
 from flask import Flask, request, jsonify, render_template
 from recommendation_engine import AssessmentRecommendationEngine, RecommendationCriteria, create_recommendation_criteria
 import os
 import webbrowser
+from typing import Optional
+
+import requests
+from bs4 import BeautifulSoup
+
+from gemini_helper import generate_explanation
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -29,8 +30,10 @@ def index():
             'GET /assessments': 'List all assessments in the catalogue',
             'GET /assessments/<id>': 'Get a specific assessment by ID',
             'GET /assessments/search?q=<term>': 'Search assessments by name or description',
-            'GET /recommendations': 'Get recommendations via query parameters',
-            'POST /recommendations': 'Get recommendations via JSON body'
+            'GET /recommendations': 'Get recommendations via query parameters (structured filters)',
+            'POST /recommendations': 'Get recommendations via JSON body (structured filters)',
+            'POST /text_recommendations': 'Get recommendations using natural language or job description text',
+            'POST /explanations': 'Get Gemini-generated explanation for text-based recommendations'
         },
         'examples': {
             'ui': '/ui',
@@ -58,7 +61,7 @@ def index():
             'difficulty_level': 'beginner, intermediate, advanced',
             'language': 'Language code (e.g., en, es, fr)',
             'exclude_ids': 'List of assessment IDs to exclude',
-            'top_n': 'Number of recommendations to return (default: 5)'
+            'top_n': 'Number of recommendations to return (default: 5 for structured, 5–10 for text-based)'
         }
     }), 200
 
@@ -173,6 +176,141 @@ def get_recommendations_get():
             'recommendations': recommendations
         }), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+def _fetch_text_from_url(url: str) -> Optional[str]:
+    """Fetch and extract visible text from a JD URL."""
+    try:
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            return None
+        soup = BeautifulSoup(resp.text, "html.parser")
+        main = soup.find("main")
+        if main:
+            return main.get_text(" ", strip=True)
+        return soup.get_text(" ", strip=True)
+    except Exception:
+        return None
+
+
+@app.route('/text_recommendations', methods=['POST'])
+def get_text_recommendations():
+    """
+    Get assessment recommendations from natural language / JD text.
+
+    JSON body:
+    {
+      "query": "free text or JD",
+      "jd_url": "https://job.example.com/posting",  # optional
+      "top_n": 10
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        query_text = data.get("query", "") or ""
+        jd_url = data.get("jd_url")
+        top_n = int(data.get("top_n", 10))
+
+        text_parts = []
+        if query_text.strip():
+            text_parts.append(query_text.strip())
+
+        if jd_url:
+            jd_text = _fetch_text_from_url(jd_url)
+            if jd_text:
+                text_parts.append(jd_text)
+
+        if not text_parts:
+            return jsonify({'error': 'Provide at least "query" or "jd_url" with readable text.'}), 400
+
+        combined_text = "\n\n".join(text_parts)
+
+        recommendations = engine.recommend_from_text(combined_text, top_n=top_n)
+
+        # Ensure each recommendation has the fields required by the assignment
+        simplified = []
+        for r in recommendations:
+            simplified.append({
+                "id": r.get("id"),
+                "name": r.get("name"),
+                "url": r.get("url"),
+                "similarity": r.get("similarity", 0.0),
+            })
+
+        return jsonify({
+            "count": len(simplified),
+            "recommendations": simplified
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/explanations', methods=['POST'])
+def get_explanations():
+    """
+    Get Gemini-generated explanation for text-based recommendations.
+
+    JSON body:
+    {
+      "query": "free text or JD",
+      "jd_url": "https://job.example.com/posting",  # optional
+      "top_n": 5-10  # optional, defaults to 5–10 window like text_recommendations
+    }
+
+    This endpoint first obtains recommendations via the same logic as
+    /text_recommendations, then calls Gemini to explain why they fit.
+    """
+    try:
+        data = request.get_json() or {}
+        query_text = data.get("query", "") or ""
+        jd_url = data.get("jd_url")
+        top_n = int(data.get("top_n", 10))
+
+        # Clamp to 5–10
+        if top_n < 5:
+            top_n = 5
+        if top_n > 10:
+            top_n = 10
+
+        text_parts = []
+        if query_text.strip():
+            text_parts.append(query_text.strip())
+
+        if jd_url:
+            jd_text = _fetch_text_from_url(jd_url)
+            if jd_text:
+                text_parts.append(jd_text)
+
+        if not text_parts:
+            return jsonify({'error': 'Provide at least "query" or "jd_url" with readable text.'}), 400
+
+        combined_text = "\n\n".join(text_parts)
+
+        # Get recommendations from text
+        recommendations_full = engine.recommend_from_text(combined_text, top_n=top_n)
+        recommendations = [
+            {
+                "id": r.get("id"),
+                "name": r.get("name"),
+                "url": r.get("url"),
+                "similarity": r.get("similarity", 0.0),
+                "description": r.get("description", ""),
+            }
+            for r in recommendations_full
+        ]
+
+        # Ask Gemini for an explanation
+        explanation = generate_explanation(combined_text, recommendations)
+
+        return jsonify({
+            "count": len(recommendations),
+            "recommendations": recommendations,
+            "explanation": explanation,
+        }), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 

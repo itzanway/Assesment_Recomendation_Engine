@@ -23,6 +23,35 @@
     <main>
         <section class="cards">
             <div class="card">
+                <h2>Free-text / JD Recommendations</h2>
+                <form id="nlp-form">
+                    <div class="field">
+                        <label for="nlp_query">Natural language query or job description</label>
+                        <textarea id="nlp_query" name="nlp_query" rows="5" placeholder="Paste a job description or describe the role, competencies, and context..."></textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="jd_url">JD URL (optional)</label>
+                        <input type="url" id="jd_url" name="jd_url" placeholder="https://careers.example.com/job/12345">
+                    </div>
+
+                    <div class="field">
+                        <label for="nlp_top_n">Number of recommendations (5–10)</label>
+                        <input type="number" id="nlp_top_n" name="nlp_top_n" min="5" max="10" value="10">
+                    </div>
+
+                    <div class="field-grid">
+                        <button type="submit" class="primary">Get Text-based Recommendations</button>
+                        <button type="button" id="explain_button" class="secondary">Explain with Gemini</button>
+                    </div>
+
+                    <p class="muted" style="margin-top: 0.5rem;">
+                        Explanations are generated using the Google Gemini API configured on the server.
+                    </p>
+                </form>
+            </div>
+
+            <div class="card">
                 <h2>Get Recommendations</h2>
                 <form id="recommendation-form">
                     <div class="field">
@@ -129,6 +158,7 @@
             <div id="results-container" class="result-grid">
                 <p class="muted">Submit a query to see results.</p>
             </div>
+            <div id="explanation-container" class="result-explanation"></div>
         </section>
     </main>
 

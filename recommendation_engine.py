@@ -1,19 +1,14 @@
-"""
-SHL Assessment Recommendation Engine
-
-This module provides a recommendation engine for SHL assessments based on
-various criteria such as job role, competencies needed, use case, and preferences.
-"""
-
 import json
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from pathlib import Path
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 @dataclass
 class RecommendationCriteria:
-    """Criteria for assessment recommendations"""
     target_role: Optional[str] = None
     competencies: Optional[List[str]] = None
     use_case: Optional[str] = None
@@ -31,6 +26,10 @@ class AssessmentRecommendationEngine:
         """Initialize the recommendation engine with product catalogue"""
         self.catalogue_path = Path(catalogue_path)
         self.assessments = self._load_catalogue()
+        # Pre-compute TF-IDF matrix for text-based recommendations
+        self._vectorizer: Optional[TfidfVectorizer] = None
+        self._tfidf_matrix = None
+        self._build_text_index()
     
     def _load_catalogue(self) -> List[Dict]:
         """Load assessment catalogue from JSON file"""
@@ -42,6 +41,29 @@ class AssessmentRecommendationEngine:
             raise FileNotFoundError(f"Catalogue file not found: {self.catalogue_path}")
         except json.JSONDecodeError:
             raise ValueError(f"Invalid JSON in catalogue file: {self.catalogue_path}")
+
+    def _build_text_index(self) -> None:
+        if not self.assessments:
+            return
+
+        documents: List[str] = []
+        for a in self.assessments:
+            name = a.get("name", "") or ""
+            desc = a.get("description", "") or ""
+            # Optionally include type/category to enrich the document
+            type_ = a.get("type", "") or ""
+            category = a.get("category", "") or ""
+            doc = " ".join([name, desc, type_, category]).strip()
+            documents.append(doc)
+
+        # Configure a reasonable TF-IDF vectorizer for short product texts
+        self._vectorizer = TfidfVectorizer(
+            stop_words="english",
+            ngram_range=(1, 2),
+            max_df=0.9,
+            min_df=1,
+        )
+        self._tfidf_matrix = self._vectorizer.fit_transform(documents)
     
     def _calculate_match_score(self, assessment: Dict, criteria: RecommendationCriteria) -> float:
         """Calculate match score for an assessment based on criteria"""
@@ -145,6 +167,49 @@ class AssessmentRecommendationEngine:
         scored_assessments.sort(key=lambda x: x['match_score'], reverse=True)
         
         return scored_assessments[:top_n]
+
+    # ------------------------------------------------------------------
+    # Text-based recommendations (for natural language query / JD text)
+    # ------------------------------------------------------------------
+
+    def recommend_from_text(self, text: str, top_n: int = 10) -> List[Dict]:
+        """
+        Recommend assessments based on free-text input (query or JD).
+
+        Args:
+            text: Natural language query or job description text.
+            top_n: Number of top recommendations to return.
+
+        Returns:
+            List of assessments with an added 'similarity' field (0–1).
+        """
+        if not text or not self.assessments or self._vectorizer is None or self._tfidf_matrix is None:
+            return []
+
+        query = text.strip()
+        if not query:
+            return []
+
+        query_vec = self._vectorizer.transform([query])
+        sims = cosine_similarity(query_vec, self._tfidf_matrix)[0]
+
+        # Pair each assessment with its similarity score
+        indexed = list(enumerate(sims))
+        indexed.sort(key=lambda x: x[1], reverse=True)
+
+        results: List[Dict] = []
+        for idx, sim in indexed[: max(top_n, 10)]:  # compute at least 10, will slice later
+            a = self.assessments[idx]
+            # Include similarity as a float; keep original fields intact
+            result = {
+                **a,
+                "similarity": float(sim),
+            }
+            results.append(result)
+
+        # Enforce 5–10 range by default: at least 5 if possible, at most top_n
+        top_n_clamped = max(5, min(top_n, 10))
+        return results[:top_n_clamped]
     
     def get_assessment_by_id(self, assessment_id: str) -> Optional[Dict]:
         """Get a specific assessment by its ID"""
