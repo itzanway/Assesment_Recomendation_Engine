@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHL Assessment Recommendation Engine</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header>
+        <div>
+            <p class="eyebrow">SHL Assessment Recommendation Engine</p>
+            <h1>Find the right assessment for your role and use case</h1>
+            <p class="subhead">Use the form to get recommendations or search the catalogue.</p>
+        </div>
+        <div class="badges">
+            <span class="badge">REST API</span>
+            <span class="badge">CLI</span>
+            <span class="badge">Content-based</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="cards">
+            <div class="card">
+                <h2>Get Recommendations</h2>
+                <form id="recommendation-form">
+                    <div class="field">
+                        <label for="target_role">Target Role</label>
+                        <input type="text" id="target_role" name="target_role" placeholder="e.g., manager, sales, engineer">
+                    </div>
+
+                    <div class="field">
+                        <label for="competencies">Competencies (comma-separated)</label>
+                        <input type="text" id="competencies" name="competencies" placeholder="leadership, communication">
+                    </div>
+
+                    <div class="field">
+                        <label for="use_case">Use Case</label>
+                        <select id="use_case" name="use_case">
+                            <option value="">Any</option>
+                            <option value="hiring">Hiring</option>
+                            <option value="development">Development</option>
+                            <option value="promotion">Promotion</option>
+                            <option value="coaching">Coaching</option>
+                            <option value="succession_planning">Succession Planning</option>
+                            <option value="team_building">Team Building</option>
+                        </select>
+                    </div>
+
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="assessment_type">Assessment Type</label>
+                            <select id="assessment_type" name="assessment_type">
+                                <option value="">Any</option>
+                                <option value="cognitive">Cognitive</option>
+                                <option value="personality">Personality</option>
+                                <option value="situational">Situational</option>
+                                <option value="motivation">Motivation</option>
+                                <option value="development">Development</option>
+                                <option value="feedback">Feedback</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="difficulty_level">Difficulty</label>
+                            <select id="difficulty_level" name="difficulty_level">
+                                <option value="">Any</option>
+                                <option value="beginner">Beginner</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="advanced">Advanced</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="max_duration_minutes">Max Duration (minutes)</label>
+                            <input type="number" id="max_duration_minutes" name="max_duration_minutes" min="1" placeholder="e.g., 30">
+                        </div>
+                        <div class="field">
+                            <label for="language">Language</label>
+                            <input type="text" id="language" name="language" placeholder="en, es, fr">
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="exclude_ids">Exclude IDs (comma-separated)</label>
+                        <input type="text" id="exclude_ids" name="exclude_ids" placeholder="OPQ32, G+">
+                    </div>
+
+                    <div class="field">
+                        <label for="top_n">Top N</label>
+                        <input type="number" id="top_n" name="top_n" min="1" value="5">
+                    </div>
+
+                    <button type="submit" class="primary">Get Recommendations</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Search Catalogue</h2>
+                <form id="search-form">
+                    <div class="field">
+                        <label for="search_term">Search term</label>
+                        <input type="text" id="search_term" name="search_term" placeholder="personality, leadership, SJT">
+                    </div>
+                    <button type="submit" class="secondary">Search</button>
+                </form>
+
+                <div class="divider"></div>
+
+                <div class="card-footer">
+                    <p class="eyebrow">Endpoints</p>
+                    <ul>
+                        <li><code>GET /assessments</code> — list all assessments</li>
+                        <li><code>GET /assessments/&lt;id&gt;</code> — get one assessment</li>
+                        <li><code>GET /assessments/search?q=term</code> — search</li>
+                        <li><code>POST /recommendations</code> — get recommendations</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="results">
+            <div class="results-header">
+                <h3 id="results-title">Results</h3>
+                <span id="results-count" class="pill">0 items</span>
+            </div>
+            <div id="results-container" class="result-grid">
+                <p class="muted">Submit a query to see results.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Powered by SHL Assessment Recommendation Engine · REST API & CLI available</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
