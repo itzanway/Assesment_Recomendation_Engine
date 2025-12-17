@@ -203,11 +203,3 @@ Edit `product_catalogue.json` to add new assessments. Each assessment should inc
 
 Edit the `_calculate_match_score` method in `recommendation_engine.py` to adjust scoring weights.
 
-## License
-
-This project is provided as-is for demonstration purposes.
-
-## Support
-
-For questions or issues, please refer to the code documentation or contact your SHL representative.
-
