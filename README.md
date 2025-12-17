@@ -2,6 +2,8 @@
 
 An intelligent recommendation engine for SHL's assessment product catalogue. This system helps users find the most suitable assessments based on job roles, required competencies, use cases, and other criteria.
 
+![Project Dashboard](https://github.com/itzanway/Assesment_Recomendation_Engine/blob/main/Screenshot%202025-12-17%20130532.png)
+
 ## Features
 
 - **Smart Recommendations**: Content-based filtering algorithm that scores assessments based on multiple criteria
